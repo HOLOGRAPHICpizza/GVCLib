@@ -21,4 +21,12 @@ public class GVCException extends Exception {
 	public GVCException(String message) {
 		super(message);
 	}
+	
+	/**
+	 * Constructor to string together another exception.
+	 * @param e Exception to create this exception from.
+	 */
+	public GVCException(Exception e) {
+		super(e);
+	}
 }

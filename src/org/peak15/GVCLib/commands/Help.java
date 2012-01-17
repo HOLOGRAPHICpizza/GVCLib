@@ -33,7 +33,7 @@ public class Help implements Command {
 	}
 
 	@Override
-	public void run(String[] args) throws GVCException {
+	public boolean run(String[] args) throws GVCException {
 		// Print help for the command specified.
 		if((args != null) && (args.length > 0)) {
 			gvclib.out.println(gvclib.getCommand(args[0]).getHelp());
@@ -45,6 +45,8 @@ public class Help implements Command {
 				gvclib.out.println("\t" + m);
 			}
 		}
+		
+		return true;
 	}
 
 }

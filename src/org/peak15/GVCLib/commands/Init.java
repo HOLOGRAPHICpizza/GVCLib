@@ -1,7 +1,10 @@
 package org.peak15.GVCLib.commands;
 
-import org.peak15.GVCLib.GVCException;
-import org.peak15.GVCLib.GVCLib;
+import java.io.File;
+import java.util.Map;
+import java.util.Set;
+
+import org.peak15.GVCLib.*;
 
 public class Init implements Command {
 	
@@ -29,9 +32,21 @@ public class Init implements Command {
 	}
 
 	@Override
-	public void run(String[] args) throws GVCException {
-		// Check all parent folders up to the filesystem boundary for a .GVC folder.
-		gvclib.out.println("Durpin around...");
+	public boolean run(String[] args) throws GVCException {
+		File currentDir = new File(".").getAbsoluteFile().getParentFile();
+		File GVCDir = new File(currentDir, ".GVC");
+		if(GVCDir.exists()) {
+			gvclib.err.println(".GVC already exists in this directory. Will not continue.");
+			//return false;
+		}
+		
+		GVCDir.mkdir();
+		gvclib.findGVCDirectory(currentDir);
+		
+		Map<byte[], Set<File>> fileSet = gvclib.getFileSet();
+		gvclib.printFileSet(fileSet);
+		
+		return true;
 	}
 
 }

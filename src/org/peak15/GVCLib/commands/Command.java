@@ -21,7 +21,8 @@ public interface Command {
 	/**
 	 * Runs the command with the given arguments.
 	 * @param args Arguments to the command.
+	 * @return True if command was successful, false otherwise.
 	 * @throws GVCException
 	 */
-	public void run(String[] args) throws GVCException;
+	public boolean run(String[] args) throws GVCException;
 }
