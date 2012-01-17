@@ -14,13 +14,22 @@ import com.twmacinta.util.*;
 
 public class FileSetVisitor implements FileVisitor<Path> {
 	
-	private Map<byte[], Set<File>> fileSet = new HashMap<byte[], Set<File>>();
+	private GVCLib gvclib;
+	private Map<String, Set<File>> fileSet = new HashMap<String, Set<File>>();
+	
+	/**
+	 * Construct a FileSetVisitor with the given GVCLib instance.
+	 * @param gvclib GVCLib instance to use.
+	 */
+	public FileSetVisitor(GVCLib gvclib) {
+		this.gvclib = gvclib;
+	}
 	
 	/**
 	 * Get the file set that this FileVisitor generates.
 	 * @return Generated file set. Will only be populated after directory is walked.
 	 */
-	public Map<byte[], Set<File>> getFileSet() {
+	public Map<String, Set<File>> getFileSet() {
 		return fileSet;
 	}
 	
@@ -37,7 +46,10 @@ public class FileSetVisitor implements FileVisitor<Path> {
 	@Override
 	public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 		// MD5sum the files and add them to the set.
-		byte[] hash = MD5.getHash(file.toFile());
+		String hash = MD5.asHex(MD5.getHash(file.toFile()));
+		
+		// make it relative to the root folder.
+		file = gvclib.makeRelative(file);
 		
 		// Is this file already in the set?
 		if(fileSet.containsKey(hash)) {
@@ -47,6 +59,7 @@ public class FileSetVisitor implements FileVisitor<Path> {
 		else {
 			// Add a new entry to the set.
 			Set<File> set = new HashSet<File>();
+			
 			set.add(file.toFile());
 			fileSet.put(hash, set);
 		}

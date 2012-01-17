@@ -12,14 +12,12 @@ import java.util.Map;
 import java.util.Set;
 import org.peak15.GVCLib.commands.Command;
 
-import com.twmacinta.util.MD5;
-
 /**
  * Shared objects for GVC.
  */
 public class GVCLib {
 	private Map<String, Command> commands = new HashMap<String, Command>();
-	private File GVCDir;
+	private Path rootDir;
 	
 	public PrintStream out = System.out;
 	public PrintStream err = System.err;
@@ -79,28 +77,23 @@ public class GVCLib {
 	
 	/**
 	 * Search all the parent folders of the given directory for a .GVC folder,
-	 * then set that folder as the .GVC folder for this GVCLib instance.
+	 * then sets it's parent folder as the root folder for this instance.
 	 * @param startDir Directory to being searching inside of and in parents of.
 	 * @return True if the directory was found and set, false otherwise.
 	 */
-	public boolean findGVCDirectory(File startDir) throws GVCException {
-		try (DirectoryStream<Path> ds = Files.newDirectoryStream(startDir.toPath(), ".GVC")) {
+	public boolean findRootDirectory(Path startDir) throws GVCException {
+		try (DirectoryStream<Path> ds = Files.newDirectoryStream(startDir, ".GVC")) {
 			Iterator<Path> iter = ds.iterator();
 			
 			if(iter.hasNext()) {
-				// Get a relative path name.
-				Path dir = iter.next();
-				Path currentDir = new File(".").getAbsoluteFile().getParentFile().toPath();
-				dir = currentDir.relativize(dir);
-				this.GVCDir = new File(".", dir.toString());
-				//out.println(this.GVCDir);
-				//System.exit(0);
+				Path dir = iter.next().toAbsolutePath().getParent();
+				this.rootDir = dir;
 				return true;
 			}
 			else {
 				// Lets look in the parent folder.
-				if(startDir.getParentFile() != null) {
-					findGVCDirectory(startDir.getParentFile());
+				if(startDir.toAbsolutePath().getParent() != null) {
+					return findRootDirectory(startDir.toAbsolutePath().getParent());
 				}
 			}
 		} catch (IOException e) {
@@ -111,22 +104,22 @@ public class GVCLib {
 	}
 	
 	/**
-	 * Get the .GVC folder used by this GVCLib instance.
-	 * @return The .GVC folder used by this GVCLib instance.
+	 * Get the root folder used by this GVCLib instance.
+	 * @return The root folder used by this GVCLib instance.
 	 */
-	public File getGVCDirectory() {
-		return this.GVCDir;
+	public Path getRootDirectory() {
+		return this.rootDir;
 	}
 	
 	/**
 	 * Gets a set of all files in the repository.
 	 * @return Map with keys as hashes and values as files.
 	 */
-	public Map<byte[], Set<File>> getFileSet() throws GVCException {
-		FileSetVisitor fsv = new FileSetVisitor();
+	public Map<String, Set<File>> getFileSet() throws GVCException {
+		FileSetVisitor fsv = new FileSetVisitor(this);
 		
 		try {
-			Files.walkFileTree(this.GVCDir.getParentFile().toPath(), fsv);
+			Files.walkFileTree(this.getRootDirectory(), fsv);
 		} catch (IOException e) {
 			throw new GVCException(e);
 		}
@@ -138,13 +131,78 @@ public class GVCLib {
 	 * Print the given file set in a somewhat eye-pleasing manner.
 	 * @param File set to print.
 	 */
-	public void printFileSet(Map<byte[], Set<File>> fileSet) {
-		for(byte[] hash : fileSet.keySet()) {
-			out.print(MD5.asHex(hash) + ":");
+	public void printFileSet(Map<String, Set<File>> fileSet) {
+		for(String hash : fileSet.keySet()) {
+			out.print(hash + ":");
 			for(File file : fileSet.get(hash)) {
 				out.print(" " + file.getPath());
 			}
 			out.print("\n");
 		}
+	}
+	
+	/**
+	 * Makes an absolute file relative to the root directory.
+	 * @param abs Absolute file.
+	 * @return Equivalent file relative to the root directory.
+	 */
+	public File makeRelative(File abs) {
+		return new File(this.makeRelative(abs.toString()));
+	}
+	
+	/**
+	 * Makes an absolute path relative to the root directory.
+	 * @param abs Absolute path.
+	 * @return Equivalent path relative to the root directory.
+	 */
+	public Path makeRelative(Path abs) {
+		return this.makeRelative(abs.toFile()).toPath();
+	}
+	
+	private String makeRelative(String abs) {
+		String root = this.getRootDirectory().toString();
+		
+		// trim any ending slash on root
+		if(root.endsWith(File.separator)){
+			root = root.substring(0, root.length() - 1);
+		}
+		
+		// remove root from abs
+		// this assumes we actually have a path containing root
+		// give us stupid paths and pay the price. ;)
+		abs = abs.substring(root.length() + 1);
+		
+		return abs;
+	}
+	
+	/**
+	 * Makes a file relative to the root directory into an absolute file.
+	 * @param rel Relative file.
+	 * @return Equivalent absolute file.
+	 */
+	public File makeAbsolute(File rel) {
+		return new File(this.makeAbsolute(rel.toString()));
+	}
+	
+	/**
+	 * Makes a path relative to the root directory into an absolute file.
+	 * @param rel Relative path.
+	 * @return Equivalent absolute path.
+	 */
+	public Path makeAbsolute(Path rel) {
+		return this.makeAbsolute(rel.toFile()).toPath();
+	}
+	
+	private String makeAbsolute(String rel) {
+		String root = this.getRootDirectory().toString();
+		
+		// add a trailing slash to root
+		if(!root.endsWith(File.separator)){
+			root += File.separator;
+		}
+		
+		rel = root + rel;
+		
+		return rel;
 	}
 }

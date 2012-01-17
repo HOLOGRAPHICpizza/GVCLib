@@ -41,9 +41,9 @@ public class Init implements Command {
 		}
 		
 		GVCDir.mkdir();
-		gvclib.findGVCDirectory(currentDir);
+		//gvclib.findGVCDirectory(currentDir);
 		
-		Map<byte[], Set<File>> fileSet = gvclib.getFileSet();
+		Map<String, Set<File>> fileSet = gvclib.getFileSet();
 		gvclib.printFileSet(fileSet);
 		
 		return true;
