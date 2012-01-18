@@ -82,6 +82,14 @@ public class GVCLib {
 	}
 	
 	/**
+	 * Calls findRootDirectory(Path) with the current directory.
+	 * @return True if the directory was found and set, false otherwise.
+	 */
+	public boolean findRootDirectory() throws GVCException {
+		return this.findRootDirectory(new File(".").getAbsoluteFile().getParentFile().toPath());
+	}
+	
+	/**
 	 * Search all the parent folders of the given directory for a .GVC folder,
 	 * then sets it's parent folder as the root folder for this instance.
 	 * Also sets the config, revision, and filestore directories.

@@ -30,6 +30,9 @@ public class Revision {
 	
 	private String serialized;
 	
+	private static ObjectMapper objectMapper = new ObjectMapper();
+	private static JsonFactory jsonFactory = new MappingJsonFactory();
+	
 	/**
 	 * Create a revision as a child of another revision.
 	 * @param parent Parent revision, or null if this is the root revision.
@@ -65,10 +68,6 @@ public class Revision {
 	}
 	
 	private void serialize() throws GVCException {
-		//TODO: make objectMapper and factory global
-		ObjectMapper objectMapper = new ObjectMapper();
-		JsonFactory jsonFactory = new MappingJsonFactory();
-		
 		JsonGenerator jsonGenerator;
 		StringWriter stringWriter = new StringWriter();
 		try {

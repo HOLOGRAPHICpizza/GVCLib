@@ -45,6 +45,8 @@ public class FileSetVisitor implements FileVisitor<Path> {
 
 	@Override
 	public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+		//TODO: implement ignore file
+		
 		// MD5sum the files and add them to the set.
 		String hash = MD5.asHex(MD5.getHash(file.toFile()));
 		

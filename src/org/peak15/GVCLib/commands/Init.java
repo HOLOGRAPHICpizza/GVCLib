@@ -38,8 +38,7 @@ public class Init implements Command {
 		File GVCDir = new File(currentDir.toFile(), ".GVC");
 		if(GVCDir.exists()) {
 			gvclib.err.println(".GVC already exists in this directory. Will not continue.");
-			//TODO: make it actually not continue
-			//return false;
+			return false;
 		}
 		
 		GVCDir.mkdir();
