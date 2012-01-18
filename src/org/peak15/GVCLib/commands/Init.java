@@ -1,6 +1,7 @@
 package org.peak15.GVCLib.commands;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
 
@@ -33,18 +34,25 @@ public class Init implements Command {
 
 	@Override
 	public boolean run(String[] args) throws GVCException {
-		File currentDir = new File(".").getAbsoluteFile().getParentFile();
-		File GVCDir = new File(currentDir, ".GVC");
+		Path currentDir = new File(".").getAbsoluteFile().getParentFile().toPath();
+		File GVCDir = new File(currentDir.toFile(), ".GVC");
 		if(GVCDir.exists()) {
 			gvclib.err.println(".GVC already exists in this directory. Will not continue.");
+			//TODO: make it actually not continue
 			//return false;
 		}
 		
 		GVCDir.mkdir();
-		//gvclib.findGVCDirectory(currentDir);
+		gvclib.findRootDirectory(currentDir);
 		
 		Map<String, Set<File>> fileSet = gvclib.getFileSet();
+		
+		gvclib.out.println("Current file set:");
 		gvclib.printFileSet(fileSet);
+		
+		Revision rev = new Revision(null, fileSet, "Initial revision.");
+		
+		gvclib.out.println(rev.getSerialized());
 		
 		return true;
 	}

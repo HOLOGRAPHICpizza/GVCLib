@@ -1,3 +1,6 @@
+Software in lib/jackson-core-lgpl-1.9.3.jar and lib/jackson-mapper-lgpl-1.9.3.jar is released under the LGPL,
+details at http://jackson.codehaus.org/
+
 Software under com.twmacinta is released under the LGPL, details in src/com/twmacinta/LICENSE
 
 Software under org.peak15 is released under the MIT License, details below.
