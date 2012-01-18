@@ -1,6 +1,8 @@
 package org.peak15.GVCLib;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.DirectoryStream;
@@ -18,6 +20,10 @@ import org.peak15.GVCLib.commands.Command;
 public class GVCLib {
 	private Map<String, Command> commands = new HashMap<String, Command>();
 	private Path rootDir;
+	private Path configDir;
+	private Path revDir;
+	private Path fsDir;
+	private Revision currentRev;
 	
 	public PrintStream out = System.out;
 	public PrintStream err = System.err;
@@ -78,6 +84,7 @@ public class GVCLib {
 	/**
 	 * Search all the parent folders of the given directory for a .GVC folder,
 	 * then sets it's parent folder as the root folder for this instance.
+	 * Also sets the config, revision, and filestore directories.
 	 * @param startDir Directory to being searching inside of and in parents of.
 	 * @return True if the directory was found and set, false otherwise.
 	 */
@@ -88,6 +95,16 @@ public class GVCLib {
 			if(iter.hasNext()) {
 				Path dir = iter.next().toAbsolutePath().getParent();
 				this.rootDir = dir;
+				this.configDir = new File(dir.toFile(), ".GVC").toPath();
+				this.revDir = new File(this.configDir.toFile(), "revisions").toPath();
+				this.fsDir = new File(this.configDir.toFile(), "filestore").toPath();
+				
+				// Create these directories if they don't exist.
+				if(!this.revDir.toFile().exists())
+					this.revDir.toFile().mkdir();
+				if(!this.fsDir.toFile().exists())
+					this.fsDir.toFile().mkdir();
+				
 				return true;
 			}
 			else {
@@ -109,6 +126,30 @@ public class GVCLib {
 	 */
 	public Path getRootDirectory() {
 		return this.rootDir;
+	}
+	
+	/**
+	 * Get the .GVC folder used by this GVCLib instance.
+	 * @return The .GVC folder used by this GVCLib instance.
+	 */
+	public Path getConfigDirectory() {
+		return this.configDir;
+	}
+	
+	/**
+	 * Get the revision folder used by this GVCLib instance.
+	 * @return The revision folder used by this GVCLib instance.
+	 */
+	public Path getRevisionDirectory() {
+		return this.revDir;
+	}
+	
+	/**
+	 * Get the filestore folder used by this GVCLib instance.
+	 * @return The filestore folder used by this GVCLib instance.
+	 */
+	public Path getFilestoreDirectory() {
+		return this.fsDir;
 	}
 	
 	/**
@@ -204,5 +245,42 @@ public class GVCLib {
 		rel = root + rel;
 		
 		return rel;
+	}
+	
+	/**
+	 * Save a revision to disk.
+	 * @param rev Revision to save.
+	 */
+	public void saveRevision(Revision rev) throws GVCException {
+		File revF = new File(this.getRevisionDirectory().toFile(), rev.getHash() + ".json");
+		try (BufferedWriter writer = new BufferedWriter(new FileWriter(revF))) {
+			writer.write(rev.getSerialized());
+		}
+		catch (IOException e) {
+			throw new GVCException(e);
+		}
+	}
+	
+	/**
+	 * Sets current revision for this repository and writes this value to disk.
+	 * @param rev Revision to set as current revision.
+	 */
+	public void setCurrentRevision(Revision rev) throws GVCException {
+		this.currentRev = rev;
+		File revF = new File(this.getConfigDirectory().toFile(), "current_revision");
+		try (BufferedWriter writer = new BufferedWriter(new FileWriter(revF))) {
+			writer.write(rev.getHash());
+		}
+		catch (IOException e) {
+			throw new GVCException(e);
+		}
+	}
+	
+	/**
+	 * Get the current revision for this repository, loaded from disk if necessary.
+	 * @return Current revision for this repository.
+	 */
+	public Revision getCurrentRevision() {
+		return this.currentRev;
 	}
 }

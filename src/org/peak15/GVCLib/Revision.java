@@ -1,10 +1,16 @@
 package org.peak15.GVCLib;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
 import java.util.Map;
 import java.util.Set;
+
+import org.codehaus.jackson.JsonFactory;
+import org.codehaus.jackson.JsonGenerator;
+import org.codehaus.jackson.map.MappingJsonFactory;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.ObjectNode;
@@ -59,8 +65,19 @@ public class Revision {
 	}
 	
 	private void serialize() throws GVCException {
-		//TODO: make objectMapper global
+		//TODO: make objectMapper and factory global
 		ObjectMapper objectMapper = new ObjectMapper();
+		JsonFactory jsonFactory = new MappingJsonFactory();
+		
+		JsonGenerator jsonGenerator;
+		StringWriter stringWriter = new StringWriter();
+		try {
+			jsonGenerator = jsonFactory.createJsonGenerator(stringWriter);
+		} catch (IOException e) {
+			throw new GVCException(e);
+		}
+		jsonGenerator.useDefaultPrettyPrinter();
+		
 		ObjectNode rootNode = objectMapper.createObjectNode();
 		
 		// Parent
@@ -94,7 +111,9 @@ public class Revision {
 				ArrayNode aNode = addedOb.putArray(fHash);
 				
 				for(File file : this.filesAdded.get(fHash)) {
-					aNode.add(file.toString());
+					// Normalize the filesystem separator to /
+					String fileS = file.toString().replace(File.separator, "/");
+					aNode.add(fileS);
 				}
 			}
 		}
@@ -110,14 +129,17 @@ public class Revision {
 				ArrayNode rNode = removedOb.putArray(fHash);
 				
 				for(File file : this.filesRemoved.get(fHash)) {
-					rNode.add(file.toString());
+					// Normalize the filesystem separator to /
+					String fileS = file.toString().replace(File.separator, "/");
+					rNode.add(fileS);
 				}
 			}
 		}
 		
 		// And write it all out to a string.
 		try {
-			this.serialized = objectMapper.writeValueAsString(rootNode);
+			jsonGenerator.writeObject(rootNode);
+			this.serialized = stringWriter.getBuffer().toString();
 		} catch (Exception e) {
 			throw new GVCException(e);
 		}

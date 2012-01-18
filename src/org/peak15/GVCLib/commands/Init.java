@@ -47,12 +47,13 @@ public class Init implements Command {
 		
 		Map<String, Set<File>> fileSet = gvclib.getFileSet();
 		
-		gvclib.out.println("Current file set:");
-		gvclib.printFileSet(fileSet);
+		//gvclib.out.println("Current file set:");
+		//gvclib.printFileSet(fileSet);
 		
 		Revision rev = new Revision(null, fileSet, "Initial revision.");
 		
-		gvclib.out.println(rev.getSerialized());
+		gvclib.saveRevision(rev);
+		gvclib.setCurrentRevision(rev);
 		
 		return true;
 	}
