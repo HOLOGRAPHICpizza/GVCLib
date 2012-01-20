@@ -33,6 +33,7 @@ public class Commit implements Command {
 		if(!gvclib.findRootDirectory()) {
 			gvclib.err.println("Could not find the root directory," + 
 					"this must not be a GVC repository.");
+			return false;
 		}
 		
 		if(gvclib.getCurrentRevision() == null) {
@@ -41,7 +42,7 @@ public class Commit implements Command {
 			return false;
 		}
 		
-		//Revision newRev = new Revision(gvclib.getCurrentRevision());
+		Revision newRev = new Revision(gvclib.getCurrentRevision(), gvclib.getFileSet(), args[0]);
 		
 		return false;
 	}

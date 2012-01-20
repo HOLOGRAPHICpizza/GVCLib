@@ -1,10 +1,14 @@
 package org.peak15.GVCLib;
 
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.Charset;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,6 +16,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+
 import org.peak15.GVCLib.commands.Command;
 
 /**
@@ -23,7 +28,7 @@ public class GVCLib {
 	private Path configDir;
 	private Path revDir;
 	private Path fsDir;
-	private Revision currentRev;
+	private Revision currentRev = null;
 	
 	public PrintStream out = System.out;
 	public PrintStream err = System.err;
@@ -261,12 +266,7 @@ public class GVCLib {
 	 */
 	public void saveRevision(Revision rev) throws GVCException {
 		File revF = new File(this.getRevisionDirectory().toFile(), rev.getHash() + ".json");
-		try (BufferedWriter writer = new BufferedWriter(new FileWriter(revF))) {
-			writer.write(rev.getSerialized());
-		}
-		catch (IOException e) {
-			throw new GVCException(e);
-		}
+		stringToFile(rev.getSerialized(), revF);
 	}
 	
 	/**
@@ -276,12 +276,7 @@ public class GVCLib {
 	public void setCurrentRevision(Revision rev) throws GVCException {
 		this.currentRev = rev;
 		File revF = new File(this.getConfigDirectory().toFile(), "current_revision");
-		try (BufferedWriter writer = new BufferedWriter(new FileWriter(revF))) {
-			writer.write(rev.getHash());
-		}
-		catch (IOException e) {
-			throw new GVCException(e);
-		}
+		stringToFile(rev.getHash(), revF);
 	}
 	
 	/**
@@ -289,6 +284,52 @@ public class GVCLib {
 	 * @return Current revision for this repository.
 	 */
 	public Revision getCurrentRevision() {
-		return this.currentRev;
+		if(this.currentRev == null) {
+			// attempt to load from disk
+			try {
+				String currentRevS = fileToString(new File(this.getConfigDirectory().toFile(), "current_revision"));
+				return new Revision(this, new File(this.getRevisionDirectory().toFile(), currentRevS + ".json"));
+			}
+			catch (GVCException e) {
+				return null;
+			}
+		}
+		else {
+			return this.currentRev;
+		}
+	}
+	
+	/**
+	 * Reads the contents of a file into a string.
+	 * @param file File to read.
+	 * @return String of the file's contents.
+	 * @throws GVCException
+	 */
+	public String fileToString(File file) throws GVCException {
+		try (FileInputStream stream = new FileInputStream(file)) {
+			FileChannel fc = stream.getChannel();
+			MappedByteBuffer bb = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
+			return Charset.forName("UTF-8").decode(bb).toString();
+		}
+		catch (IOException e) {
+			throw new GVCException(e);
+		}
+	}
+	
+	/**
+	 * Writes a string to a file.
+	 * @param string String to write.
+	 * @return File the string was written to.
+	 * @throws GVCException
+	 */
+	public void stringToFile(String string, File file) throws GVCException {
+		try (FileOutputStream stream = new FileOutputStream(file)) {
+			FileChannel fc = stream.getChannel();
+			ByteBuffer bb = Charset.forName("UTF-8").encode(string);
+			fc.write(bb);
+		}
+		catch (IOException e) {
+			throw new GVCException(e);
+		}
 	}
 }

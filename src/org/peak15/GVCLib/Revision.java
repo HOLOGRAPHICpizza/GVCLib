@@ -4,12 +4,20 @@ import java.io.File;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
+import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.MappingJsonFactory;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.ArrayNode;
@@ -19,6 +27,9 @@ import com.twmacinta.util.MD5;
 
 /**
  * Contains a list of files that are different from the parent revision.
+ * This class is perhaps designed badly, all objects are serialized when they are created,
+ * and when an object is loaded so are all of its parents, and all these are stored in memory
+ * in their full serialized form. For large repositories this could use a lot of memory.
  */
 public class Revision {
 	private Revision parent;
@@ -32,6 +43,7 @@ public class Revision {
 	
 	private static ObjectMapper objectMapper = new ObjectMapper();
 	private static JsonFactory jsonFactory = new MappingJsonFactory();
+	private static DateFormat df = DateFormat.getDateTimeInstance();
 	
 	/**
 	 * Create a revision as a child of another revision.
@@ -49,6 +61,7 @@ public class Revision {
 		else {
 			// Diff the given file set with parent's file set to get added and removed.
 			//TODO: Implement diff operation.
+			List<Map<String, Set<File>>> diffList = filesetGetDiff(parent.getFileset(), fileSet);
 		}
 		
 		if(this.filesAdded == null && this.filesRemoved == null) {
@@ -65,6 +78,82 @@ public class Revision {
 			throw new GVCException(e);
 		}
 	    this.hash = md5.asHex();
+	}
+	
+	/**
+	 * Loads a revision (and all parents) from a json file.
+	 * @param revF Json file to load revision from.
+	 */
+	public Revision(GVCLib gvclib, File revF) throws GVCException {
+		
+		JsonNode rootNode;
+		try {
+			rootNode = objectMapper.readValue(revF, JsonNode.class);
+		} catch (Exception e) {
+			throw new GVCException(e);
+		}
+		
+		// Parent(s)
+		String parentS = rootNode.path("parent").getTextValue();
+		if(parentS.equals("null")) {
+			this.parent = null;
+		}
+		else {
+			this.parent = new Revision(gvclib, new File(gvclib.getRevisionDirectory().toFile(), parentS + ".json"));
+		}
+		
+		// Date
+		try {
+			this.date = df.parse(rootNode.path("date").getTextValue());
+		} catch (ParseException e) {
+			throw new GVCException(e);
+		}
+		
+		// Comment
+		this.comment = rootNode.path("comment").getTextValue();
+		
+		// Hash
+		this.hash = revF.getName().replace(".json", "");
+		
+		// Files Added
+		JsonNode fAddNode = rootNode.path("filesAdded");
+		this.filesAdded = parseFileset(fAddNode);
+		
+		// Files Removed
+		JsonNode fRmNode = rootNode.path("filesRemoved");
+		this.filesRemoved = parseFileset(fRmNode);
+		
+		// Serialized
+		this.serialized = gvclib.fileToString(revF);
+	}
+	
+	private Map<String, Set<File>> parseFileset(JsonNode fsNode) {
+		Map<String, Set<File>> fileSet = new HashMap<String, Set<File>>();
+		
+		Iterator<String> fHashes = fsNode.getFieldNames();
+		while(fHashes.hasNext()) {
+			String fHash = fHashes.next();
+			JsonNode fNameArray = fsNode.path(fHash);
+			Iterator<String> fNames = fNameArray.getFieldNames();
+			while(fNames.hasNext()) {
+				String fName = fNames.next();
+				
+				// Is this file already in the set?
+				if(fileSet.containsKey(fHash)) {
+					// Yes, so add this path to it.
+					fileSet.get(fHash).add(new File(fName));
+				}
+				else {
+					// Add a new entry to the set.
+					Set<File> set = new HashSet<File>();
+					
+					set.add(new File(fName));
+					fileSet.put(fHash, set);
+				}
+			}
+		}
+		
+		return fileSet;
 	}
 	
 	private void serialize() throws GVCException {
@@ -86,7 +175,7 @@ public class Revision {
 			rootNode.put("parent", this.parent.getHash());
 		
 		// Date
-		rootNode.put("date", this.date.toString());
+		rootNode.put("date", df.format(this.date));
 		
 		// Comment
 		rootNode.put("comment", this.comment);
@@ -142,6 +231,65 @@ public class Revision {
 		} catch (Exception e) {
 			throw new GVCException(e);
 		}
+	}
+	
+	/**
+	 * Finds files added and removed between two file sets.
+	 * Files whose filenames have changed will be listed in both added and removed.
+	 * @param oldFs File set to compare to.
+	 * @param newFs File set to show differences in.
+	 * @return List where first map is files added and second map is files removed.
+	 */
+	public static List<Map<String, Set<File>>> filesetGetDiff(Map<String, Set<File>> oldFs, Map<String, Set<File>> newFs) {
+		Map<String, Set<File>> added = new HashMap<String, Set<File>>();
+		Map<String, Set<File>> removed = new HashMap<String, Set<File>>();
+		
+		// Look for files in both sets, and files that are new.
+		for(String hash : newFs.keySet()) {
+			if(oldFs.containsKey(hash)) {
+				// This file is in both old and new, check if the filenames are different
+				if(!oldFs.get(hash).equals(newFs.get(hash))) {
+					// Filenames have changed, add this to both the removed and added list.
+					removed.put(hash, oldFs.get(hash));
+					added.put(hash, newFs.get(hash));
+				}
+			}
+			else {
+				// This file is new.
+				added.put(hash, newFs.get(hash));
+			}
+		}
+		
+		// Look for files that have been removed.
+		for(String hash : oldFs.keySet()) {
+			if(!newFs.containsKey(hash)) {
+				// This file is in the old set but not the new set.
+				removed.put(hash, oldFs.get(hash));
+			}
+		}
+		
+		List<Map<String, Set<File>>> diffList = new ArrayList<Map<String, Set<File>>>();
+		diffList.add(added);
+		diffList.add(removed);
+		return diffList;
+	}
+	
+	/**
+	 * Applies the added and removed maps generated by fileSetGetDiff.
+	 * @param add Map of files to add to the set.
+	 * @param remove Map of files to remove from the set.
+	 * @return Fileset with the diff applied.
+	 */
+	public static Map<String, Set<File>> filesetApplyDiff(Map<String, Set<File>> add, Map<String, Set<File>> remove) {
+		return null;
+	}
+	
+	/**
+	 * Get the complete fileset of this revision with all parent diffs applied.
+	 * @return Complete fileset of this revision.
+	 */
+	public Map<String, Set<File>> getFileset() {
+		return null;
 	}
 	
 	/**
