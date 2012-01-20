@@ -6,7 +6,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.ByteBuffer;
-import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
 import java.nio.file.DirectoryStream;
@@ -301,19 +300,24 @@ public class GVCLib {
 	
 	/**
 	 * Reads the contents of a file into a string.
+	 * Should only be used with somewhat small files.
 	 * @param file File to read.
 	 * @return String of the file's contents.
 	 * @throws GVCException
 	 */
 	public String fileToString(File file) throws GVCException {
+		String string;
 		try (FileInputStream stream = new FileInputStream(file)) {
 			FileChannel fc = stream.getChannel();
-			MappedByteBuffer bb = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
-			return Charset.forName("UTF-8").decode(bb).toString();
+			ByteBuffer bb = ByteBuffer.allocate((int) fc.size());
+			fc.read(bb);
+			bb.flip();
+			string = Charset.forName("UTF-8").decode(bb).toString();
 		}
 		catch (IOException e) {
 			throw new GVCException(e);
 		}
+		return string;
 	}
 	
 	/**

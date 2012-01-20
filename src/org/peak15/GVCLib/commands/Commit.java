@@ -42,7 +42,9 @@ public class Commit implements Command {
 			return false;
 		}
 		
-		Revision newRev = new Revision(gvclib.getCurrentRevision(), gvclib.getFileSet(), args[0]);
+		Revision newRev = new Revision(gvclib, gvclib.getCurrentRevision(), gvclib.getFileSet(), args[0]);
+		gvclib.setCurrentRevision(newRev);
+		gvclib.saveRevision(newRev);
 		
 		return false;
 	}

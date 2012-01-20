@@ -49,7 +49,7 @@ public class Revision {
 	 * Create a revision as a child of another revision.
 	 * @param parent Parent revision, or null if this is the root revision.
 	 */
-	public Revision(Revision parent, Map<String, Set<File>> fileSet, String comment) throws GVCException {
+	public Revision(GVCLib gvclib, Revision parent, Map<String, Set<File>> fileSet, String comment) throws GVCException {
 		this.parent = parent;
 		this.date = new Date();
 		this.comment = comment;
@@ -60,8 +60,9 @@ public class Revision {
 		}
 		else {
 			// Diff the given file set with parent's file set to get added and removed.
-			//TODO: Implement diff operation.
-			List<Map<String, Set<File>>> diffList = filesetGetDiff(parent.getFileset(), fileSet);
+			List<Map<String, Set<File>>> diffList = filesetGetDiff(parent.getFileset(gvclib), fileSet);
+			this.filesAdded = diffList.get(0);
+			this.filesRemoved = diffList.get(1);
 		}
 		
 		if(this.filesAdded == null && this.filesRemoved == null) {
@@ -134,9 +135,9 @@ public class Revision {
 		while(fHashes.hasNext()) {
 			String fHash = fHashes.next();
 			JsonNode fNameArray = fsNode.path(fHash);
-			Iterator<String> fNames = fNameArray.getFieldNames();
+			Iterator<JsonNode> fNames = fNameArray.getElements();
 			while(fNames.hasNext()) {
-				String fName = fNames.next();
+				String fName = fNames.next().getTextValue();
 				
 				// Is this file already in the set?
 				if(fileSet.containsKey(fHash)) {
@@ -280,16 +281,50 @@ public class Revision {
 	 * @param remove Map of files to remove from the set.
 	 * @return Fileset with the diff applied.
 	 */
-	public static Map<String, Set<File>> filesetApplyDiff(Map<String, Set<File>> add, Map<String, Set<File>> remove) {
-		return null;
+	public static Map<String, Set<File>> filesetApplyDiff(
+			GVCLib gvclib,
+			Map<String, Set<File>> fileset,
+			Map<String, Set<File>> add,
+			Map<String, Set<File>> remove) {
+		
+		// Remove files from the set.
+		for(String hash : remove.keySet()) {
+			if(fileset.containsKey(hash)) {
+				fileset.remove(hash);
+			}
+			else {
+				gvclib.err.println("Warning: Attempted to remove " + hash +
+						"\nfrom a fileset not containing it.\n" +
+						"There is probably a corrupted revision file. Continuing with remaining files...");
+			}
+		}
+		
+		// Add files to the set.
+		for(String hash : add.keySet()) {
+			if(!fileset.containsKey(hash)) {
+				fileset.put(hash, add.get(hash));
+			}
+			else {
+				gvclib.err.println("Warning: Attempted to add " + hash +
+						"\nto a fileset already containing it.\n" +
+						"There is probably a corrupted revision file. Continuing with remaining files...");
+			}
+		}
+		
+		return fileset;
 	}
 	
 	/**
 	 * Get the complete fileset of this revision with all parent diffs applied.
 	 * @return Complete fileset of this revision.
 	 */
-	public Map<String, Set<File>> getFileset() {
-		return null;
+	public Map<String, Set<File>> getFileset(GVCLib gvclib) {
+		if(this.parent != null) {
+			return filesetApplyDiff(gvclib, parent.getFileset(gvclib), this.filesAdded, this.filesRemoved);
+		}
+		else {
+			return this.filesAdded;
+		}
 	}
 	
 	/**
